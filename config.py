@@ -1,5 +1,6 @@
-# 机器人的密钥
-BOT_TOKEN = "8823608568:AAFT9Uw3ph8bovQUkD_oZMhodgJC2HQzZXk"
+import os
 
-# 只有这两个人才有权限操作机器人
+# 从 Railway 的环境变量读取
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
 ADMIN_IDS = [7857605443, 8538513211]
