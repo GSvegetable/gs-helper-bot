@@ -29,7 +29,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"🟢 收到按钮点击事件！用户ID: {user_id}, 动作: {data}")
 
     try:
-        # 1. 点击人工客服
         if data == 'cs_agent':
             context.user_data['waiting_agent'] = True
             await query.edit_message_text(
@@ -37,9 +36,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ 结束客服对话", callback_data='cs_end')]]),
                 parse_mode='Markdown'
             )
-            print("📤 正在尝试通知客服...")
-
-            # 尝试发送通知给客服
             try:
                 await context.bot.send_message(
                     SUPPORT_AGENT_ID,
@@ -52,7 +48,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.message.reply_text("⚠️ 客服似乎无法接收消息，请检查是否已经把机器人拉黑了。")
             return
 
-        # 2. 拉专群
         if data == 'cs_group':
             if user_id not in ADMIN_IDS:
                 await query.edit_message_text("❌ 您没有权限使用此功能。")
@@ -64,7 +59,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(SUPPORT_AGENT_ID, f"🚀 新群组请求\n用户ID: `{user_id}`，请拉入群组。")
             return
 
-        # 3. 结束对话
         if data == 'cs_end':
             if 'waiting_agent' in context.user_data:
                 del context.user_data['waiting_agent']
@@ -81,7 +75,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         text = update.message.text
 
-        # 客户发消息
         if context.user_data.get('waiting_agent'):
             print(f"📩 收到客户 {user_id} 的消息: {text}")
             await context.bot.send_message(
@@ -91,17 +84,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # 客服右滑回复
+        # 客服右滑回复（已优化匹配规则）
         if user_id == SUPPORT_AGENT_ID and update.message.reply_to_message:
             admin_msg = update.message.reply_to_message.text
-            match = re.search(r"用户ID: `(\d+)`", admin_msg)
+            # 兼容中英文冒号，并忽略前后空格
+            match = re.search(r"用户ID[:：]\s*(\d+)", admin_msg)
+            
             if match:
                 target_user_id = int(match.group(1))
                 await context.bot.send_message(chat_id=target_user_id, text=f"💬 客服回复：\n\n{text}")
                 await update.message.reply_text("✅ 消息已成功转发给客户。")
                 return
             else:
-                await update.message.reply_text("⚠️ 请右滑带有用户ID的客服通知消息。")
+                # 如果匹配失败，把客服回复的那条原文发给他看，让他知道哪里错了
+                await update.message.reply_text(
+                    f"⚠️ 提取用户ID失败！\n\n"
+                    f"你右滑回复的原始消息是：\n`{admin_msg}`\n\n"
+                    f"👉 请确保你右滑的是刚收到的那条【📨 新客服请求】通知，而不是旧消息。"
+                )
             return
 
         if user_id in ADMIN_IDS:
